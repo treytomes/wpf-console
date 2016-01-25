@@ -95,6 +95,7 @@ namespace Terminal
 
 			ForegroundColor = Colors.Gray;
 			BackgroundColor = Colors.Black;
+			ScrollAtBottom = true;
 		}
 
 		#endregion
@@ -218,9 +219,36 @@ namespace Terminal
 		{
 			_cursorColumn = 0;
 			_cursorRow++;
+
 			if (_cursorRow >= Rows)
 			{
-				_cursorRow = 0;
+				_cursorRow--;
+
+				if (ScrollAtBottom)
+				{
+					// Move all of the text up 1 line.
+					for (var row = 1; row < Rows; row++)
+					{
+						for (var column = 0; column < Columns; column++)
+						{
+							_buffer[row - 1, column] = _buffer[row, column];
+							_redrawList.Add(new ConsolePosition(row - 1, column));
+						}
+					}
+
+					// Clear out the bottom row.
+					for (var column = 0; column < Columns; column++)
+					{
+						_buffer[Rows - 1, column].BackgroundColor = new SolidColorBrush(BackgroundColor);
+						_buffer[Rows - 1, column].ForegroundColor = new SolidColorBrush(ForegroundColor);
+						_buffer[Rows - 1, column].Character = '\0';
+						_redrawList.Add(new ConsolePosition(Rows - 1, column));
+					}
+				}
+				else
+				{
+					_cursorRow = 0;
+				}
 			}
 		}
 
