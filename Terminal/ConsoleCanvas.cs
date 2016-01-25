@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
@@ -54,6 +55,10 @@ namespace Terminal
 		private List<ConsolePosition> _redrawList;
 		private Size _tileSize;
 		private RenderTargetBitmap _backBuffer;
+
+		private KeyboardListener _keyboard;
+		private bool _isReading;
+		private string _readBuffer;
 		
 		#endregion
 
@@ -81,6 +86,12 @@ namespace Terminal
 			_buffer = new ConsoleAttribute[Rows, Columns];
 			_backBuffer = new RenderTargetBitmap((int)Width, (int)Height, _asciiTiles._source.DpiX, _asciiTiles._source.DpiY, PixelFormats.Default);
 			_redrawList = new List<ConsolePosition>();
+
+			_keyboard = new KeyboardListener();
+			_keyboard.KeyDown += Keyboard_KeyDown;
+			_keyboard.KeyUp += Keyboard_KeyUp;
+			_isReading = false;
+			_readBuffer = string.Empty;
 
 			ForegroundColor = Colors.Gray;
 			BackgroundColor = Colors.Black;
@@ -131,14 +142,44 @@ namespace Terminal
 
 		#region Methods
 
-		public bool Read(Action<char> receiver)
+		public Task<char> Read()
 		{
-			throw new NotImplementedException();
+			if (_isReading)
+			{
+				throw new InvalidOperationException("The buffer is already locked for reading.");
+			}
+			_isReading = true;
+			_readBuffer = string.Empty;
+
+			return Task.Run(() =>
+			{
+				while (_readBuffer.Length == 0) ;
+
+				var result = _readBuffer[0];
+				_isReading = false;
+				_readBuffer = string.Empty;
+				return result;
+			});
 		}
 
-		public bool ReadLine(Action<string> receiver)
+		public Task<string> ReadLine()
 		{
-			throw new NotImplementedException();
+			if (_isReading)
+			{
+				throw new InvalidOperationException("The buffer is already locked for reading.");
+			}
+			_isReading = true;
+			_readBuffer = string.Empty;
+
+			return Task.Run(() =>
+			{
+				while (!_readBuffer.EndsWith("\n") && !_readBuffer.EndsWith("\r")) ;
+
+				var result = _readBuffer;
+				_isReading = false;
+				_readBuffer = string.Empty;
+				return result;
+			});
 		}
 
 		public void Write(char ch)
@@ -152,6 +193,8 @@ namespace Terminal
 			if (_cursorColumn >= Columns)
 			{
 				_cursorColumn = 0;
+
+				// TODO: Implement auto-scrolling.
 				_cursorRow++;
 				if (_cursorRow >= Rows)
 				{
@@ -159,7 +202,7 @@ namespace Terminal
 				}
 			}
 
-			InvalidateVisual();
+			Dispatcher.Invoke(() => InvalidateVisual());
 		}
 
 		public void Write(string text, params object[] args)
@@ -171,13 +214,8 @@ namespace Terminal
 			}
 		}
 
-		public void WriteLine(string text, params object[] args)
+		public void WriteLine()
 		{
-			text = string.Format(text, args);
-			foreach (var ch in text)
-			{
-				Write(ch);
-			}
 			_cursorColumn = 0;
 			_cursorRow++;
 			if (_cursorRow >= Rows)
@@ -185,7 +223,13 @@ namespace Terminal
 				_cursorRow = 0;
 			}
 		}
-		
+
+		public void WriteLine(string text, params object[] args)
+		{
+			Write(text, args);
+			WriteLine();
+		}
+
 		protected override void OnRender(DrawingContext dc)
 		{
 			base.OnRender(dc);
@@ -251,6 +295,30 @@ namespace Terminal
 					location.X += _asciiTiles.TileWidth;
 				}
 				location.Y += _asciiTiles.TileHeight;
+			}
+		}
+
+		#endregion
+
+		#region Event Handlers
+
+		private void Keyboard_KeyUp(object sender, RawKeyEventArgs args)
+		{
+		}
+
+		private void Keyboard_KeyDown(object sender, RawKeyEventArgs args)
+		{
+			if (_isReading)
+			{
+				_readBuffer += args.Character;
+				if (args.Key == Key.Enter)
+				{
+					WriteLine();
+				}
+				else
+				{
+					Write(args.Character);
+				}
 			}
 		}
 

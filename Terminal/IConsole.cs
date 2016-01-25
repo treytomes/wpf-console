@@ -1,4 +1,4 @@
-﻿using System;
+﻿using System.Threading.Tasks;
 
 namespace Terminal
 {
@@ -10,7 +10,8 @@ namespace Terminal
 		void Write(char ch);
 		void Write(string text, params object[] args);
 		void WriteLine(string text, params object[] args);
-		bool Read(Action<char> receiver);
-		bool ReadLine(Action<string> receiver);
+		void WriteLine();
+		Task<char> Read();
+		Task<string> ReadLine();
 	}
 }

@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -22,8 +24,11 @@ namespace Terminal
 		private DispatcherTimer _timer;
 		private int _lineNumber;
 
-		#endregion
+		private bool _ready;
+		private ManualResetEvent _readySwitch;
 
+		#endregion
+		
 		#region Constructors
 
 		public MainWindow()
@@ -35,13 +40,35 @@ namespace Terminal
 			console.ForegroundColor = Colors.White;
 			console.BackgroundColor = Colors.Red;
 			console.WriteLine("This is a test.");
-			console.BackgroundColor = Colors.DarkGreen;
-			console.WriteLine("This is another test.");
 
 			_lineNumber = 0;
 
-			_timer = new DispatcherTimer(TimeSpan.FromSeconds(1.0 / TARGET_FPS), DispatcherPriority.Normal, Timer_Callback, Dispatcher);
-			_timer.Start();
+			console.Write("> ");
+
+			_readySwitch = new ManualResetEvent(false);
+			console.ReadLine()
+				.ContinueWith(text =>
+				{
+					MessageBox.Show(text.Result.ToString());
+					_readySwitch.Set();
+				});
+
+			Task.Run(() =>
+			{
+				_readySwitch.WaitOne(); // wait until the read is finished
+
+				Dispatcher.Invoke(() =>
+				{
+					console.BackgroundColor = Colors.DarkGreen;
+					console.WriteLine("This is another test.");
+
+					_timer = new DispatcherTimer(TimeSpan.FromSeconds(1.0 / TARGET_FPS), DispatcherPriority.Normal, Timer_Callback, Dispatcher);
+					_timer.Start();
+				});
+			});
+
+			//_listener = new KeyboardListener();
+			//_listener.KeyDown += _listener_KeyDown;
 		}
 
 		#endregion
@@ -52,6 +79,11 @@ namespace Terminal
 		{
 			console.WriteLine("{0}. *****", _lineNumber++);
 		}
+
+		//private void _listener_KeyDown(object sender, RawKeyEventArgs args)
+		//{
+		//	console.Write(args.Character);
+		//}
 
 		#endregion
 	}
