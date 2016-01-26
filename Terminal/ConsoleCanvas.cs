@@ -15,9 +15,60 @@ namespace Terminal
 	{
 		private struct ConsoleAttribute
 		{
-			public SolidColorBrush ForegroundColor;
-			public SolidColorBrush BackgroundColor;
-			public char Character;
+			public readonly Color ForegroundColor;
+			public readonly Color BackgroundColor;
+			public readonly char Character;
+
+			public readonly SolidColorBrush ForegroundBrush;
+			public readonly SolidColorBrush BackgroundBrush;
+
+			public ConsoleAttribute(char character, Color foregroundColor, Color backgroundColor)
+			{
+				Character = character;
+				ForegroundColor = foregroundColor;
+				BackgroundColor = backgroundColor;
+				ForegroundBrush = new SolidColorBrush(ForegroundColor);
+				BackgroundBrush = new SolidColorBrush(BackgroundColor);
+			}
+
+			public override bool Equals(object obj)
+			{
+				if ((obj == null) || !(obj is ConsoleAttribute))
+				{
+					return false;
+				}
+				else
+				{
+					var other = (ConsoleAttribute)obj;
+					return
+						(ForegroundColor == other.ForegroundColor) &&
+						(BackgroundColor == other.BackgroundColor) &&
+						(Character == other.Character);
+				}
+			}
+
+			public override int GetHashCode()
+			{
+				unchecked // Overflow is fine, just wrap
+				{
+					// Check for null values here...
+					var hash = 17;
+					hash = hash * 23 + ForegroundColor.GetHashCode();
+					hash = hash * 23 + BackgroundColor.GetHashCode();
+					hash = hash * 23 + Character.GetHashCode();
+					return hash;
+				}
+			}
+
+			public static bool operator == (ConsoleAttribute left, ConsoleAttribute right)
+			{
+				return left.Equals(right);
+			}
+
+			public static bool operator != (ConsoleAttribute left, ConsoleAttribute right)
+			{
+				return !left.Equals(right); // !(left == right);
+			}
 		}
 
 		private struct ConsolePosition
@@ -139,6 +190,22 @@ namespace Terminal
 		/// </summary>
 		public bool ScrollAtBottom { get; set; }
 
+		private ConsoleAttribute this[int row, int column]
+		{
+			get
+			{
+				return _buffer[row, column];
+			}
+			set
+			{
+				if (_buffer[row, column] != value)
+				{
+					_buffer[row, column] = value;
+					_redrawList.Add(new ConsolePosition(row, column));
+				}
+			}
+		}
+
 		#endregion
 
 		#region Methods
@@ -185,10 +252,7 @@ namespace Terminal
 
 		public void Write(char ch)
 		{
-			_buffer[_cursorRow, _cursorColumn].ForegroundColor = new SolidColorBrush(ForegroundColor);
-			_buffer[_cursorRow, _cursorColumn].BackgroundColor = new SolidColorBrush(BackgroundColor);
-			_buffer[_cursorRow, _cursorColumn].Character = ch;
-			_redrawList.Add(new ConsolePosition(_cursorRow, _cursorColumn));
+			this[_cursorRow, _cursorColumn] = new ConsoleAttribute(ch, ForegroundColor, BackgroundColor);
 
 			_cursorColumn++;
 			if (_cursorColumn >= Columns)
@@ -231,18 +295,16 @@ namespace Terminal
 					{
 						for (var column = 0; column < Columns; column++)
 						{
-							_buffer[row - 1, column] = _buffer[row, column];
-							_redrawList.Add(new ConsolePosition(row - 1, column));
+							this[row - 1, column] = this[row, column];
 						}
 					}
+
+					var emptyAttr = new ConsoleAttribute('\0', ForegroundColor, BackgroundColor);
 
 					// Clear out the bottom row.
 					for (var column = 0; column < Columns; column++)
 					{
-						_buffer[Rows - 1, column].BackgroundColor = new SolidColorBrush(BackgroundColor);
-						_buffer[Rows - 1, column].ForegroundColor = new SolidColorBrush(ForegroundColor);
-						_buffer[Rows - 1, column].Character = '\0';
-						_redrawList.Add(new ConsolePosition(Rows - 1, column));
+						this[Rows - 1, column] = emptyAttr;
 					}
 				}
 				else
@@ -286,13 +348,13 @@ namespace Terminal
 				var location = new Point(point.Column * _asciiTiles.TileWidth, point.Row * _asciiTiles.TileHeight);
 				var dstRect = new Rect(location, _tileSize);
 
-				var attribute = _buffer[point.Row, point.Column];
-				var backgroundBrush = attribute.BackgroundColor;
+				var attribute = this[point.Row, point.Column];
+				var backgroundBrush = attribute.BackgroundBrush;
 				dstRect.Location = location;
 
 				dc.DrawRectangle(backgroundBrush, null, dstRect);
 
-				_asciiTiles.Render(dc, location, attribute.ForegroundColor, attribute.Character);
+				_asciiTiles.Render(dc, location, attribute.ForegroundBrush, attribute.Character);
 			}
 			_redrawList.Clear();
 		}
@@ -312,13 +374,13 @@ namespace Terminal
 				location.X = 0;
 				for (int column = 0, x = 0; column < Columns; column++, x += _asciiTiles.TileWidth)
 				{
-					var attribute = _buffer[row, column];
-					var backgroundBrush = _buffer[row, column].BackgroundColor;
+					var attribute = this[row, column];
+					var backgroundBrush = this[row, column].BackgroundBrush;
 					dstRect.Location = location;
 
 					dc.DrawRectangle(backgroundBrush, null, dstRect);
 
-					_asciiTiles.Render(dc, location, attribute.ForegroundColor, attribute.Character);
+					_asciiTiles.Render(dc, location, attribute.ForegroundBrush, attribute.Character);
 
 					location.X += _asciiTiles.TileWidth;
 				}
