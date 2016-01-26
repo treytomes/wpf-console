@@ -24,7 +24,6 @@ namespace Terminal
 		private DispatcherTimer _timer;
 		private int _lineNumber;
 
-		private bool _ready;
 		private ManualResetEvent _readySwitch;
 
 		#endregion
@@ -66,9 +65,6 @@ namespace Terminal
 					_timer.Start();
 				});
 			});
-
-			//_listener = new KeyboardListener();
-			//_listener.KeyDown += _listener_KeyDown;
 		}
 
 		#endregion

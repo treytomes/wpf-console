@@ -2,12 +2,14 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 
 namespace Terminal
 {
@@ -118,6 +120,12 @@ namespace Terminal
 		private KeyboardListener _keyboard;
 		private bool _isReading;
 		private string _readBuffer;
+
+		/// <summary>
+		/// The current blink state of the cursor.
+		/// Will the cursor be drawn on the next render?
+		/// </summary>
+		private bool _blinkCursor;
 		
 		#endregion
 
@@ -163,6 +171,9 @@ namespace Terminal
 			_isReading = false;
 			_readBuffer = string.Empty;
 
+			_blinkCursor = false;
+			new Task(BlinkCursor).Start();
+			
 			ForegroundColor = Colors.Gray;
 			BackgroundColor = Colors.Black;
 			ScrollAtBottom = true;
@@ -171,6 +182,11 @@ namespace Terminal
 		#endregion
 
 		#region Properties
+
+		/// <summary>
+		/// Should the cursor be rendered?
+		/// </summary>
+		public bool IsCursorVisible { get; set; }
 
 		public Color ForegroundColor { get; set; }
 
@@ -221,6 +237,7 @@ namespace Terminal
 				{
 					_buffer[row, column] = value;
 					_redrawList.Add(new ConsolePosition(row, column));
+					Dispatcher.Invoke(InvalidateVisual);
 				}
 			}
 		}
@@ -285,8 +302,6 @@ namespace Terminal
 					_cursorRow = 0;
 				}
 			}
-
-			Dispatcher.Invoke(() => InvalidateVisual());
 		}
 
 		public void Write(string text, params object[] args)
@@ -353,6 +368,12 @@ namespace Terminal
 			// Save the back buffer for the next frame.
 			_backBuffer.Render(visual);
 
+			if (_blinkCursor)
+			{
+				RenderTile(dc, _cursorRow, _cursorColumn, CURSOR_CHAR, new SolidColorBrush(ForegroundColor), new SolidColorBrush(BackgroundColor));
+			}
+			IsCursorVisible = true;
+
 			// Render the back buffer to the canvas.
 			dc.DrawImage(_backBuffer, new Rect(0, 0, Width, Height));
 		}
@@ -364,16 +385,8 @@ namespace Terminal
 		{
 			foreach (var point in _redrawList)
 			{
-				var location = new Point(point.Column * _asciiTiles.TileWidth, point.Row * _asciiTiles.TileHeight);
-				var dstRect = new Rect(location, _tileSize);
-
 				var attribute = this[point.Row, point.Column];
-				var backgroundBrush = attribute.BackgroundBrush;
-				dstRect.Location = location;
-
-				dc.DrawRectangle(backgroundBrush, null, dstRect);
-
-				_asciiTiles.Render(dc, location, attribute.ForegroundBrush, attribute.Character);
+				RenderTile(dc, point.Row, point.Column, attribute.Character, attribute.ForegroundBrush, attribute.BackgroundBrush);
 			}
 			_redrawList.Clear();
 		}
@@ -394,16 +407,42 @@ namespace Terminal
 				for (int column = 0, x = 0; column < Columns; column++, x += _asciiTiles.TileWidth)
 				{
 					var attribute = this[row, column];
-					var backgroundBrush = this[row, column].BackgroundBrush;
 					dstRect.Location = location;
-
-					dc.DrawRectangle(backgroundBrush, null, dstRect);
-
-					_asciiTiles.Render(dc, location, attribute.ForegroundBrush, attribute.Character);
+					RenderTile(dc, dstRect, attribute.Character, attribute.ForegroundBrush, attribute.BackgroundBrush);
 
 					location.X += _asciiTiles.TileWidth;
 				}
 				location.Y += _asciiTiles.TileHeight;
+			}
+		}
+
+		private void RenderTile(DrawingContext dc, int row, int column, char ch, Brush foregroundBrush, Brush backgroundBrush)
+		{
+			var location = new Point(column * _asciiTiles.TileWidth, row * _asciiTiles.TileHeight);
+			var dstRect = new Rect(location, _tileSize);
+			RenderTile(dc, dstRect, ch, foregroundBrush, backgroundBrush);
+		}
+
+		private void RenderTile(DrawingContext dc, Rect dstRect, char ch, Brush foregroundBrush, Brush backgroundBrush)
+		{
+			dc.DrawRectangle(backgroundBrush, null, dstRect);
+			_asciiTiles.Render(dc, dstRect.Location, foregroundBrush, ch);
+		}
+
+		/// <summary>
+		/// This will run on it's own thread.
+		/// </summary>
+		private void BlinkCursor()
+		{
+			while (true)
+			{
+				_blinkCursor = !_blinkCursor;
+
+				if (IsCursorVisible)
+				{
+					Dispatcher.Invoke(InvalidateVisual);
+				}
+				Thread.Sleep(CURSOR_BLINK_MS);
 			}
 		}
 
