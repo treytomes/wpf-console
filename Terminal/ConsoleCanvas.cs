@@ -279,7 +279,7 @@ namespace Terminal
 			{
 				while (!_readBuffer.EndsWith("\n") && !_readBuffer.EndsWith("\r")) ;
 
-				var result = _readBuffer;
+				var result = _readBuffer.Replace("\r", string.Empty).Replace("\n", string.Empty);
 				_isReading = false;
 				_readBuffer = string.Empty;
 				return result;
@@ -463,7 +463,16 @@ namespace Terminal
 				{
 					case Key.Enter:
 						WriteLine();
-						return;
+						break;
+					case Key.Back:
+						if (_readBuffer.Length > 0)
+						{
+							_readBuffer = _readBuffer.Substring(0, _readBuffer.Length - 1);
+							_cursorColumn--;
+							Write(' ');
+							_cursorColumn--;
+						}
+						break;
 					default:
 						Write(args.Character);
 						break;

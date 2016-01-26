@@ -1,4 +1,5 @@
 ﻿using System;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
@@ -24,8 +25,6 @@ namespace Terminal
 		private DispatcherTimer _timer;
 		private int _lineNumber;
 
-		private ManualResetEvent _readySwitch;
-
 		#endregion
 		
 		#region Constructors
@@ -34,37 +33,23 @@ namespace Terminal
 		{
 			InitializeComponent();
 
-			console.WriteLine("\x0002 Hello, world! \x0002");
-			console.WriteLine(string.Empty);
 			console.ForegroundColor = Colors.White;
+			console.WriteLine("\x0002 Hello, world! \x0002");
+			console.WriteLine("Welcome to the WPF Console!");
+			console.WriteLine();
+
 			console.BackgroundColor = Colors.Red;
 			console.WriteLine("This is a test.");
 
 			_lineNumber = 0;
 
-			console.Write("> ");
+			console.ForegroundColor = Colors.Gray;
+			console.BackgroundColor = Colors.Black;
 
-			_readySwitch = new ManualResetEvent(false);
-			console.ReadLine()
-				.ContinueWith(text =>
-				{
-					MessageBox.Show(text.Result.ToString());
-					_readySwitch.Set();
-				});
-
-			Task.Run(() =>
+			if (!DesignerProperties.GetIsInDesignMode(this))
 			{
-				_readySwitch.WaitOne(); // wait until the read is finished
-
-				Dispatcher.Invoke(() =>
-				{
-					console.BackgroundColor = Colors.DarkGreen;
-					console.WriteLine("This is another test.");
-
-					_timer = new DispatcherTimer(TimeSpan.FromSeconds(1.0 / TARGET_FPS), DispatcherPriority.Normal, Timer_Callback, Dispatcher);
-					_timer.Start();
-				});
-			});
+				Task.Run(REPL_Callback);
+			}
 		}
 
 		#endregion
@@ -74,6 +59,33 @@ namespace Terminal
 		private void Timer_Callback(object sender, EventArgs e)
 		{
 			console.WriteLine("{0}. *****", _lineNumber++);
+		}
+
+		private async Task REPL_Callback()
+		{
+			while (true)
+			{
+				Dispatcher.Invoke(() => console.Write("> "));
+				var text = await console.ReadLine();
+				 
+				if (text.StartsWith("ECHO ", StringComparison.CurrentCultureIgnoreCase))
+				{
+					MessageBox.Show(text.Substring(5));
+				}
+				else if (string.Compare(text, "GO", true) == 0)
+				{
+					Dispatcher.Invoke(() =>
+					{
+						console.ForegroundColor = Colors.BlanchedAlmond;
+						console.BackgroundColor = Colors.ForestGreen;
+						console.WriteLine("This is another test.");
+
+						_timer = new DispatcherTimer(TimeSpan.FromSeconds(1.0 / TARGET_FPS), DispatcherPriority.Normal, Timer_Callback, Dispatcher);
+						_timer.Start();
+					});
+					break;
+				}
+			}
 		}
 
 		//private void _listener_KeyDown(object sender, RawKeyEventArgs args)
