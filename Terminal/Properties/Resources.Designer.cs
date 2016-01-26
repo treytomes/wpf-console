@@ -63,6 +63,26 @@ namespace Terminal.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap OEM437_12 {
+            get {
+                object obj = ResourceManager.GetObject("OEM437_12", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap OEM437_16 {
+            get {
+                object obj = ResourceManager.GetObject("OEM437_16", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap OEM437_8 {
             get {
                 object obj = ResourceManager.GetObject("OEM437_8", resourceCulture);

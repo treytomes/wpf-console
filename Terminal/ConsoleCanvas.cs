@@ -13,6 +13,13 @@ namespace Terminal
 {
 	public class ConsoleCanvas : Canvas, IConsole
 	{
+		public enum FontSize
+		{
+			Size8x8,
+			Size8x12,
+			Size8x16
+		}
+
 		private struct ConsoleAttribute
 		{
 			public readonly Color ForegroundColor;
@@ -67,7 +74,7 @@ namespace Terminal
 
 			public static bool operator != (ConsoleAttribute left, ConsoleAttribute right)
 			{
-				return !left.Equals(right); // !(left == right);
+				return !(left == right);
 			}
 		}
 
@@ -93,6 +100,7 @@ namespace Terminal
 
 		private const int DEFAULT_ROWS = 25;
 		private const int DEFAULT_COLUMNS = 80;
+		private const FontSize DEFAULT_SIZE = FontSize.Size8x16;
 
 		#endregion
 
@@ -116,15 +124,26 @@ namespace Terminal
 		#region Constructors
 
 		public ConsoleCanvas()
-			: this(DEFAULT_ROWS, DEFAULT_COLUMNS)
+			: this(DEFAULT_ROWS, DEFAULT_COLUMNS, DEFAULT_SIZE)
 		{
 		}
 
-		public ConsoleCanvas(int rows, int columns)
+		public ConsoleCanvas(int rows, int columns, FontSize size = DEFAULT_SIZE)
 		{
 			Background = Brushes.Black;
 
-			_asciiTiles = new TileSet(Properties.Resources.OEM437_8, 8, 8);
+			switch (size)
+			{
+				case FontSize.Size8x8:
+					_asciiTiles = new TileSet(Properties.Resources.OEM437_8, 8, 8);
+					break;
+				case FontSize.Size8x12:
+					_asciiTiles = new TileSet(Properties.Resources.OEM437_12, 8, 12);
+					break;
+				case FontSize.Size8x16:
+					_asciiTiles = new TileSet(Properties.Resources.OEM437_16, 8, 16);
+					break;
+			}
 			Rows = rows;
 			Columns = columns;
 
@@ -401,13 +420,14 @@ namespace Terminal
 			if (_isReading)
 			{
 				_readBuffer += args.Character;
-				if (args.Key == Key.Enter)
+				switch (args.Key)
 				{
-					WriteLine();
-				}
-				else
-				{
-					Write(args.Character);
+					case Key.Enter:
+						WriteLine();
+						return;
+					default:
+						Write(args.Character);
+						break;
 				}
 			}
 		}
