@@ -59,7 +59,9 @@
     <Compile Include="Global.cs" />
     <Compile Include="IConsole.cs" />
     <Compile Include="ConsoleCanvas.cs" />
+    <Compile Include="InterceptKeys.cs" />
     <Compile Include="KeyboardListener.cs" />
+    <Compile Include="RawKeyEventArgs.cs" />
     <Compile Include="TileSet.cs" />
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
